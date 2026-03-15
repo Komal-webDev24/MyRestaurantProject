@@ -6,7 +6,7 @@ import Home from './pages/home';
 import About from './pages/about';
 import Contact from './pages/Contact';
 import Menu from './pages/Menu';
-
+import SignIn from './pages/SignIn';
 function App() {
   return (
     <Router>
@@ -26,6 +26,7 @@ function App() {
             <Link to="/about" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>About</Link>
             <Link to="/menu" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>Menu</Link>
             <Link to="/contact" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>Contact</Link>
+            <Link to="/signin" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>Sign In</Link>
           </div>
         </nav>
 
@@ -36,6 +37,7 @@ function App() {
             <Route path="/about" element={<About />} />
             <Route path="/menu" element={<Menu />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/signin" element={<SignIn />} />
           </Routes>
         </div>
 
