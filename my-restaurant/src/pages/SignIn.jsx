@@ -1,4 +1,7 @@
 import { useState } from "react";
+import axios from "axios";
+
+const API = "http://localhost:5000/api/auth";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -173,21 +176,6 @@ const styles = `
   .btn-primary:active { transform: translateY(0); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 24px 0;
-    color: rgba(255,255,255,0.15);
-    font-size: 12px;
-  }
-  .divider::before, .divider::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: rgba(255,255,255,0.08);
-  }
-
   .footer-text {
     text-align: center;
     font-size: 13px;
@@ -215,28 +203,6 @@ const styles = `
     margin-bottom: 16px;
   }
 
-  .social-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 12px;
-    color: rgba(255,255,255,0.7);
-    font-size: 13px;
-    font-weight: 500;
-    font-family: 'Sora', sans-serif;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
-  }
-  .social-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
-
-  .social-row { display: flex; gap: 10px; }
-
-  /* OTP Input */
   .otp-row {
     display: flex;
     gap: 10px;
@@ -377,13 +343,26 @@ const styles = `
     transition: background 0.3s;
   }
 
+  .error-msg {
+    font-size: 12px;
+    color: #ef4444;
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  .success-msg {
+    font-size: 12px;
+    color: #22c55e;
+    margin-top: 10px;
+    text-align: center;
+  }
+
   @media (max-width: 480px) {
     .card { padding: 36px 24px; margin: 16px; border-radius: 20px; }
     .otp-input { width: 44px; height: 54px; font-size: 20px; }
   }
 `;
 
-/* ─────────────── Helpers ─────────────── */
 function getStrength(p) {
   let s = 0;
   if (p.length >= 8) s++;
@@ -395,7 +374,6 @@ function getStrength(p) {
 const strengthColor = ["#ef4444","#f97316","#eab308","#22c55e"];
 const strengthLabel = ["Weak","Fair","Good","Strong"];
 
-/* ─────────────── Components ─────────────── */
 function Logo() {
   return (
     <div className="logo-area">
@@ -417,16 +395,29 @@ function StepDots({ current, total }) {
 
 /* ─────────────── Sign Up Page ─────────────── */
 function SignUpPage({ navigate }) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
-  const [show, setShow] = useState(false);
-  const [agree, setAgree] = useState(false);
+  const [name, setName]       = useState("");
+  const [email, setEmail]     = useState("");
+  const [pass, setPass]       = useState("");
+  const [show, setShow]       = useState(false);
+  const [agree, setAgree]     = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
   const strength = getStrength(pass);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name || !email || !pass || !agree) return;
-    navigate("otp");
+    setLoading(true);
+    setError("");
+    try {
+      await axios.post(`${API}/signup`, { name, email, password: pass });
+      localStorage.setItem("pendingEmail", email);
+      await axios.post(`${API}/send-otp`, { email });
+      navigate("otp");
+    } catch (err) {
+      setError(err.response?.data?.message || "Signup failed. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -435,19 +426,6 @@ function SignUpPage({ navigate }) {
       <StepDots current={0} total={3} />
       <h1 className="page-title">Create account</h1>
       <p className="page-sub">Join thousands of users already on Nexora.</p>
-
-      <div className="social-row" style={{ marginBottom: 20 }}>
-        <button className="social-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-          Google
-        </button>
-        <button className="social-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.09.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.268 2.75 1.026A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.026 2.747-1.026.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
-          GitHub
-        </button>
-      </div>
-
-      <div className="divider">or sign up with email</div>
 
       <div className="form-group">
         <label className="form-label">Full name</label>
@@ -484,8 +462,10 @@ function SignUpPage({ navigate }) {
         </label>
       </div>
 
-      <button className="btn-primary" onClick={handleSubmit} disabled={!name || !email || !pass || !agree}>
-        Create Account →
+      {error && <p className="error-msg">{error}</p>}
+
+      <button className="btn-primary" onClick={handleSubmit} disabled={!name || !email || !pass || !agree || loading}>
+        {loading ? "Creating account..." : "Create Account →"}
       </button>
 
       <p className="footer-text">
@@ -498,15 +478,26 @@ function SignUpPage({ navigate }) {
 
 /* ─────────────── Login Page ─────────────── */
 function LoginPage({ navigate }) {
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
-  const [show, setShow] = useState(false);
+  const [email, setEmail]     = useState("");
+  const [pass, setPass]       = useState("");
+  const [show, setShow]       = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
 
-  const handleLogin = () => {
+  // ✅ Login ke baad seedha dashboard — OTP nahi
+  const handleLogin = async () => {
     if (!email || !pass) return;
     setLoading(true);
-    setTimeout(() => { setLoading(false); navigate("otp"); }, 1200);
+    setError("");
+    try {
+      const res = await axios.post(`${API}/login`, { email, password: pass });
+      localStorage.setItem("token", res.data.token);
+      window.location.href = "http://localhost:3000/";
+    } catch (err) {
+      setError(err.response?.data?.message || "Login failed. Check credentials.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -514,19 +505,6 @@ function LoginPage({ navigate }) {
       <Logo />
       <h1 className="page-title">Welcome back</h1>
       <p className="page-sub">Sign in to continue to your workspace.</p>
-
-      <div className="social-row" style={{ marginBottom: 20 }}>
-        <button className="social-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-          Google
-        </button>
-        <button className="social-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.09.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.268 2.75 1.026A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.026 2.747-1.026.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
-          GitHub
-        </button>
-      </div>
-
-      <div className="divider">or continue with email</div>
 
       <div className="form-group">
         <label className="form-label">Email address</label>
@@ -545,6 +523,8 @@ function LoginPage({ navigate }) {
         <button className="link-btn" onClick={() => navigate("forgot")}>Forgot password?</button>
       </div>
 
+      {error && <p className="error-msg">{error}</p>}
+
       <button className="btn-primary" onClick={handleLogin} disabled={!email || !pass || loading}>
         {loading ? "Signing in..." : "Sign In →"}
       </button>
@@ -559,62 +539,243 @@ function LoginPage({ navigate }) {
 
 /* ─────────────── Forgot Password Page ─────────────── */
 function ForgotPage({ navigate }) {
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [step, setStep]             = useState("email");
+  const [email, setEmail]           = useState("");
+  const [otp, setOtp]               = useState(["","","","","",""]);
+  const [newPass, setNewPass]       = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [showNew, setShowNew]       = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const [timer, setTimer]           = useState(30);
+  const refList = [];
+  const storeRef = (i) => (el) => { refList[i] = el; };
 
-  const handleSend = () => {
+  const handleSendOtp = async () => {
     if (!email) return;
-    setSent(true);
+    setLoading(true);
+    setError("");
+    try {
+      await axios.post(`${API}/send-otp`, { email });
+      localStorage.setItem("pendingEmail", email);
+      setStep("otp");
+      setTimer(30);
+    } catch (err) {
+      setError(err.response?.data?.message || "Email not found.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleVerifyOtp = async () => {
+    if (otp.join("").length < 6) return;
+    setLoading(true);
+    setError("");
+    try {
+      await axios.post(`${API}/verify-otp`, { email, otp: otp.join("") });
+      setStep("newpass");
+    } catch (err) {
+      setError(err.response?.data?.message || "Invalid or expired OTP.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPass || newPass !== confirmPass) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (newPass.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await axios.post(`${API}/reset-password`, { email, password: newPass });
+      localStorage.removeItem("pendingEmail");
+      navigate("login");
+    } catch (err) {
+      setError(err.response?.data?.message || "Password reset failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpChange = (i, val) => {
+    const v = val.replace(/\D/g, "").slice(-1);
+    const next = [...otp];
+    next[i] = v;
+    setOtp(next);
+    if (v && i < 5) setTimeout(() => refList[i+1]?.focus(), 0);
+  };
+  const handleOtpKey = (i, e) => {
+    if (e.key === "Backspace" && !otp[i] && i > 0)
+      setTimeout(() => refList[i-1]?.focus(), 0);
+  };
+  const handleOtpPaste = (e) => {
+    const text = e.clipboardData.getData("text").replace(/\D/g,"").slice(0,6);
+    if (text.length === 6) {
+      setOtp(text.split(""));
+      setTimeout(() => refList[5]?.focus(), 0);
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      await axios.post(`${API}/send-otp`, { email });
+      setTimer(30);
+      setError("");
+    } catch {
+      setError("Could not resend OTP.");
+    }
+  };
+
+  useState(() => {
+    if (step !== "otp" || timer <= 0) return;
+    const id = setInterval(() => setTimer(t => {
+      if (t <= 1) { clearInterval(id); return 0; }
+      return t - 1;
+    }), 1000);
+    return () => clearInterval(id);
+  });
 
   return (
     <div className="card">
       <Logo />
-      <button className="back-btn" onClick={() => navigate("login")}>
-        ← Back to sign in
+      <button className="back-btn" onClick={() =>
+        step === "email" ? navigate("login") :
+        step === "otp" ? setStep("email") :
+        setStep("otp")
+      }>
+        ← Back
       </button>
 
-      {!sent ? (
+      {/* Step 1: Email */}
+      {step === "email" && (
         <>
+          <StepDots current={0} total={3} />
           <h1 className="page-title">Reset password</h1>
-          <p className="page-sub">Enter your email and we'll send you a 6-digit OTP to reset your password.</p>
+          <p className="page-sub">Enter your registered email to receive an OTP.</p>
 
           <div className="form-group">
             <label className="form-label">Email address</label>
             <input className="form-input" type="email" placeholder="alex@example.com" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
 
-          <button className="btn-primary" onClick={handleSend} disabled={!email}>
-            Send OTP →
+          {error && <p className="error-msg">{error}</p>}
+
+          <button className="btn-primary" onClick={handleSendOtp} disabled={!email || loading}>
+            {loading ? "Sending..." : "Send OTP →"}
           </button>
+
+          <p className="footer-text" style={{ marginTop: 16 }}>
+            Remember password? <button className="link-btn" onClick={() => navigate("login")}>Sign in</button>
+          </p>
         </>
-      ) : (
+      )}
+
+      {/* Step 2: OTP */}
+      {step === "otp" && (
         <>
-          <div className="success-icon">✉️</div>
-          <h1 className="page-title" style={{ textAlign: "center" }}>Check your inbox</h1>
-          <p className="page-sub" style={{ textAlign: "center" }}>
-            We've sent a 6-digit OTP to<br />
+          <StepDots current={1} total={3} />
+          <h1 className="page-title">Enter OTP</h1>
+          <p className="page-sub">
+            We sent a 6-digit code to<br />
             <span style={{ color: "#a5b4fc", fontWeight: 500 }}>{email}</span>
           </p>
-          <button className="btn-primary" onClick={() => navigate("otp")}>
-            Enter OTP →
+
+          <p className="otp-hint">Type or paste your OTP below</p>
+
+          <div className="otp-row" onPaste={handleOtpPaste}>
+            {otp.map((d, i) => (
+              <input
+                key={i}
+                ref={storeRef(i)}
+                className={`otp-input ${d ? "filled" : ""}`}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={d}
+                onChange={e => handleOtpChange(i, e.target.value)}
+                onKeyDown={e => handleOtpKey(i, e)}
+              />
+            ))}
+          </div>
+
+          {error && <p className="error-msg">{error}</p>}
+
+          <button className="btn-primary" onClick={handleVerifyOtp} disabled={otp.join("").length < 6 || loading}>
+            {loading ? "Verifying..." : "Verify OTP →"}
           </button>
-          <p className="footer-text" style={{ marginTop: 16 }}>
-            Wrong email?{" "}
-            <button className="link-btn" onClick={() => setSent(false)}>Change email</button>
-          </p>
+
+          <div className="resend-row">
+            {timer > 0 ? (
+              <>Resend code in<span className="timer-chip">0:{String(timer).padStart(2,"0")}</span></>
+            ) : (
+              <>Didn't receive it? <button className="link-btn" onClick={handleResend}>Resend OTP</button></>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Step 3: New Password */}
+      {step === "newpass" && (
+        <>
+          <StepDots current={2} total={3} />
+          <h1 className="page-title">New password</h1>
+          <p className="page-sub">Choose a strong new password for your account.</p>
+
+          <div className="form-group">
+            <label className="form-label">New password</label>
+            <div className="input-wrap">
+              <input
+                className="form-input"
+                type={showNew ? "text" : "password"}
+                placeholder="Min. 8 characters"
+                value={newPass}
+                onChange={e => setNewPass(e.target.value)}
+                style={{ paddingRight: 44 }}
+              />
+              <button className="eye-btn" onClick={() => setShowNew(!showNew)} type="button">{showNew ? "🙈" : "👁"}</button>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Confirm password</label>
+            <div className="input-wrap">
+              <input
+                className="form-input"
+                type={showConfirm ? "text" : "password"}
+                placeholder="Re-enter password"
+                value={confirmPass}
+                onChange={e => setConfirmPass(e.target.value)}
+                style={{ paddingRight: 44 }}
+              />
+              <button className="eye-btn" onClick={() => setShowConfirm(!showConfirm)} type="button">{showConfirm ? "🙈" : "👁"}</button>
+            </div>
+          </div>
+
+          {error && <p className="error-msg">{error}</p>}
+
+          <button className="btn-primary" onClick={handleResetPassword} disabled={!newPass || !confirmPass || loading}>
+            {loading ? "Saving..." : "Reset Password →"}
+          </button>
         </>
       )}
     </div>
   );
 }
 
-/* ─────────────── OTP Page ─────────────── */
+/* ─────────────── OTP Page (Signup ke baad) ─────────────── */
 function OTPPage({ navigate }) {
-  const [otp, setOtp] = useState(["","","","","",""]);
-  const [timer, setTimer] = useState(30);
+  const [otp, setOtp]           = useState(["","","","","",""]);
+  const [timer, setTimer]       = useState(30);
   const [verified, setVerified] = useState(false);
-  const refs = Array.from({ length: 6 }, () => null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
   const refList = [];
 
   const storeRef = (i) => (el) => { refList[i] = el; };
@@ -628,9 +789,8 @@ function OTPPage({ navigate }) {
   };
 
   const handleKey = (i, e) => {
-    if (e.key === "Backspace" && !otp[i] && i > 0) {
+    if (e.key === "Backspace" && !otp[i] && i > 0)
       setTimeout(() => refList[i-1]?.focus(), 0);
-    }
   };
 
   const handlePaste = (e) => {
@@ -641,30 +801,52 @@ function OTPPage({ navigate }) {
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (otp.join("").length < 6) return;
-    setVerified(true);
+    setLoading(true);
+    setError("");
+    const email = localStorage.getItem("pendingEmail") || "";
+    try {
+      await axios.post(`${API}/verify-otp`, { email, otp: otp.join("") });
+      localStorage.removeItem("pendingEmail");
+      setVerified(true);
+    } catch (err) {
+      setError(err.response?.data?.message || "Invalid or expired OTP.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    const email = localStorage.getItem("pendingEmail") || "";
+    try {
+      await axios.post(`${API}/send-otp`, { email });
+      setTimer(30);
+      setError("");
+    } catch {
+      setError("Could not resend OTP.");
+    }
   };
 
   useState(() => {
     if (timer <= 0) return;
-    const id = setInterval(() => setTimer(t => { if (t <= 1) { clearInterval(id); return 0; } return t-1; }), 1000);
+    const id = setInterval(() => setTimer(t => {
+      if (t <= 1) { clearInterval(id); return 0; }
+      return t - 1;
+    }), 1000);
     return () => clearInterval(id);
   });
 
   return (
     <div className="card">
       <Logo />
-      <button className="back-btn" onClick={() => navigate("login")}>
-        ← Back
-      </button>
+      <button className="back-btn" onClick={() => navigate("login")}>← Back</button>
       <StepDots current={1} total={3} />
 
       {!verified ? (
         <>
           <h1 className="page-title">Verify your identity</h1>
           <p className="page-sub">Enter the 6-digit code we sent to your email address.</p>
-
           <p className="otp-hint">Type or paste your OTP below</p>
 
           <div className="otp-row" onPaste={handlePaste}>
@@ -683,15 +865,17 @@ function OTPPage({ navigate }) {
             ))}
           </div>
 
-          <button className="btn-primary" onClick={handleVerify} disabled={otp.join("").length < 6}>
-            Verify OTP →
+          {error && <p className="error-msg">{error}</p>}
+
+          <button className="btn-primary" onClick={handleVerify} disabled={otp.join("").length < 6 || loading}>
+            {loading ? "Verifying..." : "Verify OTP →"}
           </button>
 
           <div className="resend-row">
             {timer > 0 ? (
               <>Resend code in<span className="timer-chip">0:{String(timer).padStart(2,"0")}</span></>
             ) : (
-              <>Didn't receive it? <button className="link-btn" onClick={() => setTimer(30)}>Resend OTP</button></>
+              <>Didn't receive it? <button className="link-btn" onClick={handleResend}>Resend OTP</button></>
             )}
           </div>
         </>
@@ -700,10 +884,10 @@ function OTPPage({ navigate }) {
           <div className="success-icon" style={{ marginTop: 8 }}>✅</div>
           <h1 className="page-title" style={{ textAlign: "center" }}>Verified!</h1>
           <p className="page-sub" style={{ textAlign: "center" }}>
-            Your identity has been confirmed.<br />You're all set to continue.
+            Your account has been created.<br />You're all set to continue.
           </p>
           <button className="btn-primary" onClick={() => navigate("login")}>
-            Go to Dashboard →
+            Go to Login →
           </button>
         </>
       )}
